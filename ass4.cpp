@@ -1,5 +1,7 @@
-#include <cv.h>   		// open cv general include file
-#include <highgui.h>	// open cv GUI include file
+//#include <cv.h>   		// open cv general include file
+//#include <highgui.h>	// open cv GUI include file
+#include "opencv/cv.h"
+#include "opencv/highgui.h"
 #include <iostream>		// standard C++ I/O
 #include <string.h>
 
@@ -28,6 +30,54 @@ void printVars(){
 	std::cout << "D0: "             << D0             << endl;
 	std::cout << "n: "              << n              << endl;
 	std::cout << "sigma: "          << sigma          << endl;
+}
+
+void create_butterworth_highpass_filter(CvMat* dft_Filter, int D, int n)
+{
+	CvMat* single = cvCreateMat(dft_Filter->rows, dft_Filter->cols, CV_64FC1 );
+
+	CvPoint centre = cvPoint(dft_Filter->rows / 2, dft_Filter->cols / 2);
+	double radius;
+
+	// based on the forumla in the IP notes (p. 124 of 2009/10 version)
+	// see also HIPR2 on-line
+
+	for(int i = 0; i < dft_Filter->rows; i++)
+	{
+		for(int j = 0; j < dft_Filter->cols; j++)
+		{
+			radius = (double) sqrt(pow((i - centre.x), 2.0) + pow((double) (j - centre.y), 2.0));
+			CV_MAT_ELEM(*single, double, i, j) =
+						( 1 / (1 + pow((double) (D /  radius), (double) (2 * n))));
+		}
+	}
+
+	cvMerge(single, single, NULL, NULL, dft_Filter);
+
+	cvReleaseMat(&single);
+}
+
+void create_butterworth_lowpass_filter(Mat &dft_Filter, int D, int n, int W)
+{
+    Mat tmp = Mat(dft_Filter.rows, dft_Filter.cols, CV_32F);
+
+    Point centre = Point(dft_Filter.rows / 2, dft_Filter.cols / 2);
+    double radius;
+
+    for (int i = 0; i < dft_Filter.rows; i++)
+    {
+        for (int j = 0; j < dft_Filter.cols; j++)
+        {
+            radius = (double) sqrt(pow((i - centre.x), 2.0) + pow((double) (j - centre.y), 2.0));
+
+            // Butterworth low pass:
+            tmp.at<float>(i, j) = (float)
+                                  ( 1 / (1 + pow((double) (radius * W) / ( pow((double)radius, 2) - D * D ), (double) (2 * n))));
+        }
+    }
+
+    Mat toMerge[] = {tmp, tmp};
+    merge(toMerge, 2, dft_Filter);
 }
 
 // When passing char arrays as parameters they must be pointers
@@ -67,6 +117,10 @@ int main(int argc, char* argv[]) {
 		    sigma = atoi(argv[i + 1]);
                 }
         }
+
+        Mat image = imread(input_image);
+        imshow("New Window", image);
+        //Gaussian getGaussianKernel(1,sigma);
     }
     /*  Completed User Input */
 	
